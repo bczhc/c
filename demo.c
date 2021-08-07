@@ -16,33 +16,26 @@ void *accept_thread(void *arg) {
     struct ThreadArgs *threadArgs = (struct ThreadArgs *) arg;
     int clientFD = threadArgs->clientFD;
 
-    for (int j = 0; j < 100; ++j) {
-        char buf[256];
-        int eolIndex = -1;
-        for (int i = 0; i < 256; ++i) {
-            read(clientFD, buf + i, 1);
-            if (buf[i] == '\n') {
-                eolIndex = i;
-                break;
-            }
-        }
-        if (eolIndex == -1) {
-            fprintf(stderr, "Data received has no newLine mark\n");
-            continue;
-        }
-        buf[eolIndex] = '\0';
+    char head[5];
+    read(clientFD, head, sizeof(head));
 
-        printf("%s\n", buf);
-        int responseLength = 7 + eolIndex + 1;
-        char response[responseLength];
-        strcpy(response, "hello, ");
-        strncpy(response + 7, buf, eolIndex);
-        response[responseLength - 1] = '\n';
+    if (strncmp(head, "bczhc", 5) == 0) {
+        printf("Match head!\n");
+        char buf[100];
+        size_t readLen = read(clientFD, buf, 100);
+        if (readLen > 0) {
+            buf[readLen] = '\0';
+            printf("Received: %s\n", buf);
+        } else {
+            fprintf(stderr, "Read error\n");
+        }
+        close(clientFD);
 
-        write(clientFD, response, responseLength);
+    } else {
+        printf("Mismatched head...\n");
+        close(clientFD);
     }
 
-    close(clientFD);
     free(threadArgs);
     return NULL;
 }
@@ -67,7 +60,7 @@ int main() {
     }
 
     for (int i = 0; i < 10; ++i) {
-        int clintFD = 0;
+        int clintFD;
         if ((clintFD = accept(fd, NULL, NULL)) == -1) {
             fprintf(stderr, "Failed to accept\n");
             continue;
